@@ -283,6 +283,9 @@ class GeneticAlgorithm():
 
         self.offspring = tmp_pop
 
+    def bbWiseCrossover(self):
+        pass
+
     def reorderMutation(self):
         for Individual in self.offspring:
             for i in range(self.geneSize):
@@ -313,6 +316,27 @@ class GeneticAlgorithm():
                     tmp = Individual.gene[i]
                     Individual.gene[i] = Individual.gene[idx]
                     Individual.gene[idx] = tmp
+
+    def dsmConstruction(self):
+        p_zero = []
+        p_one = []
+        for i in range(self.geneSize):
+            zero_counter = 0
+            one_counter = 0
+            for individual in self.population:
+                if individual.gene[i] == 0:
+                    zero_counter += 1
+                else:
+                    one_counter += 1
+            p_zero.append(zero_counter)
+            p_one.append(one_counter)
+
+        for i in range(self.geneSize):
+            for j in range(self.geneSize):
+                pass
+
+    def dsmClustering(self):
+        pass
 
     def combination(self):
         self.population = self.population + self.offspring

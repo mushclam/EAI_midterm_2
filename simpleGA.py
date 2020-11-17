@@ -17,18 +17,20 @@ if __name__ == '__main__':
     os.chdir(path)
     # Argument parsing
     parser = argparse.ArgumentParser(description='Basic Genetic Algorithm Sample')
-    parser.add_argument('-p', '--problem', dest='problem', action='store',
-                        default='TSP', type=str, help='Choose the problem(KP/TSP).')
+    # parser.add_argument('-p', '--problem', dest='problem', action='store',
+    #                     default='DP', type=str, help='Choose the problem.')
     parser.add_argument('-cprob', '--crossoverProbability', dest='crossover_prob', action='store', 
                         default=0.7, type=float, help='Set the probability of crossover operator.')
     parser.add_argument('-mprob', '--mutationProbability', dest='mutation_prob', action='store',
                         default=0.001, type=float, help='Set the probability of mutation operator.')
+    parser.add_argument('-isize', '--individualSize', dest='gene_size', action='store',
+                        default=100, type=int, help='Set the size of gene.')
     parser.add_argument('-psize', '--populationSize', dest='population_size', action='store',
                         default=300, type=int, help='Set the size of population.')
     parser.add_argument('-gen', '--generation', dest='generation', action='store',
                         default=500, type=int, help='Set the maximum generation.')
-    parser.add_argument('-in', '--input', dest='filename', action='store',
-                        default='tsp_data.txt', type=str, help='Set the input filename.')
+    # parser.add_argument('-in', '--input', dest='filename', action='store',
+    #                     default='tsp_data.txt', type=str, help='Set the input filename.')
     parser.add_argument('-out', '--output', dest='output', action='store',
                         default='result.json', type=str, help='Set the output filename(json).')
     args = parser.parse_args()
@@ -36,43 +38,36 @@ if __name__ == '__main__':
     print(args)
 
     # Set arguments to variables
-    problem = args.problem
-    filename = args.filename
     crossover_prob = args.crossover_prob
     mutation_prob = args.mutation_prob
+    gene_size = args.gene_size
     popSize = args.population_size
     generation = args.generation
 
-     # Traveling Salesman Problem Dataset
-    dataset = Salesman(filename)
-    dataset.read()
-    gene_size = len(dataset.location)
-
     # Generate each GA instance
-    tspga = GeneticAlgorithm(gene_size, popSize, crossover_prob, mutation_prob)
+    dsmga = GeneticAlgorithm(gene_size, popSize, crossover_prob, mutation_prob)
 
     best_fitness = []
     mean_fitness = []
 
-    print('Ranking', end=' ')
-    tspga.initialization()
-    bf, mf = tspga.calculateFitness(dataset)
+    print('Dependency Structure Matrix Genetic Algorithm...', end=' ')
+    dsmga.initialization()
+    bf, mf = dsmga.calculateFitness()
     best_fitness.append(bf)
     mean_fitness.append(mf)
 
     # Training
     for i in range(generation):
-        # tspga.orderTwoCrossover()
-        # tspga.cycleCrossover()
-        tspga.partialMappedCrossover()
 
-        # tspga.reorderMutation()
-        tspga.offspringCalculateFitness(dataset)
-        tspga.adaptiveReorderMutation()
+        dsmga.kspPairWiseTournamentSelection()
+        dsmga.dsmConstruction()
+        dsmga.dsmClustering()
+        dsmga.bbWiseCrossover()
+        dsmga.adaptiveReorderMutation()
         
-        tspga.combination()
-        bf, mf = tspga.calculateFitness(dataset)
-        tspga.sortingSelection()
+        dsmga.combination()
+        bf, mf = dsmga.calculateFitness()
+        dsmga.sortingSelection()
 
         best_fitness.append(bf)
         mean_fitness.append(mf)
