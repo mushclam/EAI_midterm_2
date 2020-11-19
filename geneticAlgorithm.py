@@ -1,5 +1,11 @@
 import random
 import math
+import copy
+import time
+from matplotlib import pyplot as plt
+from scipy import special as sp
+import numpy as np
+
 from individual import Individual
 
 class GeneticAlgorithm():
@@ -67,13 +73,13 @@ class GeneticAlgorithm():
 
         self.population = tmp_pop
 
-    def kspPairWiseTournamentSelection(self):
+    def PairWiseTournamentSelection(self):
         # Pair-wise Tournament Selection
         tmp_pop = []
 
         for Individual in self.population:
             competitive = self.population[random.randint(0, self.populationSize-1)]
-            if Individual.totalDist < competitive.totalDist:
+            if Individual.fitness > competitive.fitness:
                 tmp_pop.append(Individual)
             else:
                 tmp_pop.append(competitive)
@@ -111,213 +117,78 @@ class GeneticAlgorithm():
                 break
         self.population = tmp_pop
 
-    def orderOneCrossover(self):
+    def bbWiseCrossover(self, building_block):
         tmp_pop = []
         random.shuffle(self.population)
 
-        for i in range(int(self.populationSize/2)):
-            if random.random() < self.crossoverProb:
-                pos = [random.randint(0, self.geneSize-1), random.randint(0, self.geneSize-1)]
-                pos.sort()
+        if random.random() <= self.crossoverProb:
+            # bb = []
+            # while len(bb) < 3:
+            #     tmp_bb = building_block[random.randint(0, len(building_block)-1)]
+            #     if tmp_bb not in bb:
+            #         bb.append(tmp_bb)
+            bb = building_block
 
-                p1 = self.population[i].gene
-                p2 = self.population[i + int(self.populationSize/2)].gene
+            overlap = []
+            for i in range(len(bb) - 1):
+                if len(bb[i] & bb[i+1]) <= 0:
+                    overlap.append(None)
+                else:
+                    overlap.append(random.sample((bb[i] & bb[i+1]), 1)[0])
 
-                ch1 = p2[pos[0]:pos[1]]
-                ch2 = p1[pos[0]:pos[1]]
+            orig_gene = [ind.gene for ind in self.population]
+            idx = [list(b) for b in bb]
 
-                tmp1 = []
-                tmp2 = []
+            for i in range(len(overlap)):
+                next_gene = []
+                if overlap[i] is not None:
+                    for j in range(2):
+                        p = [np.array(gene) for gene in orig_gene if gene[overlap[i]] == j]
+                        cut_p = [gene[idx[i]] for gene in p]
+                        random.shuffle(p)
 
-                for locus in p1:
-                    if not locus in ch1:
-                        tmp1.append(locus)
-                for locus in p2:
-                    if not locus in ch2:
-                        tmp2.append(locus)
+                        for k in range(len(p)):
+                            tmp_p = copy.deepcopy(p[k])
+                            tmp_p[idx[i]] = cut_p[k]
+                            next_gene.append(tmp_p.tolist())
+                else:
+                    p = [np.array(gene) for gene in orig_gene]
+                    cut_p = [gene[idx[i]] for gene in p]
+                    random.shuffle(p)
 
-                ch1 = tmp1[:pos[0]] + ch1 + tmp1[pos[0]:]
-                ch2 = tmp2[:pos[0]] + ch2 + tmp2[pos[0]:]
+                    for j in range(len(p)):
+                        tmp_p = copy.deepcopy(p[j])
+                        tmp_p[idx[i]] = cut_p[j]
+                        next_gene.append(tmp_p.tolist())
+                orig_gene = next_gene
 
-                np1 = Individual(self.geneSize)
-                np2 = Individual(self.geneSize)
-                np1.initialization(ch1)
-                np2.initialization(ch2)
-                tmp_pop.append(np1)
-                tmp_pop.append(np2)
+            for gene in next_gene:
+                n_p = Individual(self.geneSize)
+                n_p.initialization(gene)
+                tmp_pop.append(n_p)
+            
+        self.population = tmp_pop
 
-        self.offspring = tmp_pop
-
-    def orderTwoCrossover(self):
-        tmp_pop = []
-        random.shuffle(self.population)
-
-        while len(tmp_pop) < len(self.population):
-            if random.random() < self.crossoverProb:
-                pos = [random.randint(0, self.geneSize-1), random.randint(0, self.geneSize-1)]
-                pos.sort()
-
-                p1 = self.population[random.randint(0, len(self.population)-1)].gene
-                p2 = self.population[random.randint(0, len(self.population)-1)].gene
-
-                ch1 = p2[pos[0]:pos[1]]
-                ch2 = p1[pos[0]:pos[1]]
-
-                tmp1 = []
-                tmp2 = []
-
-                for locus in p1:
-                    if not locus in ch1:
-                        tmp1.append(locus)
-                for locus in p2:
-                    if not locus in ch2:
-                        tmp2.append(locus)
-
-                ch1 = tmp1[:pos[0]] + ch1 + tmp1[pos[0]:]
-                ch2 = tmp2[:pos[0]] + ch2 + tmp2[pos[0]:]
-
-                np1 = Individual(self.geneSize)
-                np2 = Individual(self.geneSize)
-                np1.initialization(ch1)
-                np2.initialization(ch2)
-                tmp_pop.append(np1)
-                tmp_pop.append(np2)
-
-        self.offspring = tmp_pop
-
-    def partialMappedCrossover(self):
-        tmp_pop = []
-        random.shuffle(self.population)
-
-        while len(tmp_pop) < len(self.population):
-            if random.random() < self.crossoverProb:
-                pos = [random.randint(0, self.geneSize-1), random.randint(0, self.geneSize-1)]
-                pos.sort()
-
-                p1 = self.population[random.randint(0, len(self.population)-1)].gene
-                p2 = self.population[random.randint(0, len(self.population)-1)].gene
-
-                ch1 = p2[pos[0]:pos[1]]
-                ch2 = p1[pos[0]:pos[1]]
-
-                tmp1 = []
-                tmp2 = []
-
-                o1 = []
-                o2 = []
-
-                for locus in p1:
-                    if locus in ch1:
-                        tmp1.append(locus)
-                for locus in p2:
-                    if locus in ch2:
-                        tmp2.append(locus)
-
-                for locus in p1:
-                    if not locus in ch1:
-                        tmp1.append(locus)
-                    else:
-                        tmp2.pop(0)
-                for locus in p2:
-                    if not locus in ch2:
-                        tmp2.append(locus)
-                    else:
-                        tmp1.pop(0)
-
-                o1 = tmp1[:pos[0]] + ch1 + tmp1[pos[0]:]
-                o2 = tmp2[:pos[0]] + ch2 + tmp2[pos[0]:]
-
-                np1 = Individual(self.geneSize)
-                np2 = Individual(self.geneSize)
-                np1.initialization(o1)
-                np2.initialization(o2)
-                tmp_pop.append(np1)
-                tmp_pop.append(np2)
-
-        self.offspring = tmp_pop
-
-    def orderCrossover(self):
-        pass
-
-    def cycleCrossover(self):
-        tmp_pop = []
-        random.shuffle(self.population)
-
-        while len(tmp_pop) < len(self.population):
-            if random.random() < self.crossoverProb:
-                p1 = self.population[random.randint(0, len(self.population)-1)].gene
-                p2 = self.population[random.randint(0, len(self.population)-1)].gene
-                
-                tmp1 = {}
-                tmp2 = {}
-
-                o1 = []
-                o2 = []
-
-                pick = 0
-                while not p2[pick] in tmp1.values():
-                    tmp1[pick] = p1[pick]
-                    pick = p1.index(p2[pick])
-                tmp1[pick] = p1[pick]
-
-                for k, _ in tmp1.items():
-                    tmp2[k] = p2[k]
-
-                for i in range(len(p1)):
-                    if not i in tmp1:
-                        tmp1[i] = p2[i]
-                for i in range(len(p2)):
-                    if not i in tmp2:
-                        tmp2[i] = p1[i]
-
-                for i in range(self.geneSize):
-                    o1.append(tmp1[i])
-                    o2.append(tmp2[i])
-
-                np1 = Individual(self.geneSize)
-                np2 = Individual(self.geneSize)
-                np1.initialization(o1)
-                np2.initialization(o2)
-                tmp_pop.append(np1)
-                tmp_pop.append(np2)
-
-        self.offspring = tmp_pop
-
-    def bbWiseCrossover(self):
-        pass
-
-    def reorderMutation(self):
-        for Individual in self.offspring:
+    def pointMutation(self):
+        for Individual in self.population:
             for i in range(self.geneSize):
                 if random.random() < self.mutationProb:
-                    idx = random.randint(0, self.geneSize - 1)
-                    while idx == i:
-                        idx = random.randint(0, self.geneSize - 1)
+                    Individual.gene[i] = 1 - Individual.gene[i]
 
-                    tmp = Individual.gene[i]
-                    Individual.gene[i] = Individual.gene[idx]
-                    Individual.gene[idx] = tmp
+    def dsmConstruction(self, bb_info):
+        if len(bb_info) != 0:
+            m = len(bb_info)
+            k = sum([sum(x) for x in bb_info]) / len(bb_info)
+        else:
+            m = 100
+            k = 100
 
-    def adaptiveReorderMutation(self, mp_max=0.02, mp_min=0.001):
-        for Individual in self.offspring:
-            if Individual.totalDist < self.o_mean:
-                mutationProb = mp_max
-            else:
-                if self.o_best == self.o_mean:
-                    mutationProb = mp_min
-                else:
-                    mutationProb = mp_max * (mp_max - mp_min) * (Individual.totalDist - self.o_mean) / (self.o_best - self.o_mean)
-            for i in range(self.geneSize):
-                if random.random() < mutationProb:
-                    idx = random.randint(0, self.geneSize - 1)
-                    while idx == i:
-                        idx = random.randint(0, self.geneSize - 1)
-
-                    tmp = Individual.gene[i]
-                    Individual.gene[i] = Individual.gene[idx]
-                    Individual.gene[idx] = tmp
-
-    def dsmConstruction(self):
+        c = 1 / (8 * math.pi * (k**2))
+        l = k * m
+        # _threshold = 0.03
+        threshold = 1/(2*self.populationSize) + math.sqrt(sp.lambertw(c * (l**6)) / (2*(self.populationSize**2)))
+        # __threshold = 1/(2 * self.populationSize) + math.sqrt(sp.lambertw(0.04 * (25**6))/(2*(self.populationSize**2)))
+        dsm = []
         p_zero = []
         p_one = []
         for i in range(self.geneSize):
@@ -330,13 +201,275 @@ class GeneticAlgorithm():
                     one_counter += 1
             p_zero.append(zero_counter)
             p_one.append(one_counter)
+        p_zero = [p/self.populationSize for p in p_zero]
+        p_one = [p/self.populationSize for p in p_one]
 
         for i in range(self.geneSize):
+            row = []
             for j in range(self.geneSize):
-                pass
+                if i == j:
+                    row.append(1)
+                    continue
+                p_zz = 0
+                p_zo = 0
+                p_oz = 0
+                p_oo = 0
+                for individual in self.population:
+                    if individual.gene[i] == 0 and individual.gene[j] == 0:
+                        p_zz += 1
+                    elif individual.gene[i] == 0 and individual.gene[j] == 1:
+                        p_zo += 1
+                    elif individual.gene[i] == 1 and individual.gene[j] == 0:
+                        p_oz += 1
+                    elif individual.gene[i] == 1 and individual.gene[j] == 1:
+                        p_oo += 1
+                    else:
+                        raise Exception("Error: Individual gene contain wrong allele!")
+                p_zz = p_zz / self.populationSize
+                p_zo = p_zo / self.populationSize
+                p_oz = p_oz / self.populationSize
+                p_oo = p_oo / self.populationSize
 
-    def dsmClustering(self):
-        pass
+                if not p_zz or not p_zo or not p_oz or not p_oo:
+                    kld = - math.inf
+                else:
+                    kld = p_zz * math.log(p_zz/(p_zero[i]*p_zero[j]))
+                    + p_zo * math.log(p_zo/(p_zero[i]*p_one[j]))
+                    + p_oz * math.log(p_oz/(p_one[i]*p_zero[j]))
+                    + p_oo * math.log(p_oo/(p_one[i]*p_one[j]))
+                row.append(1 if kld > threshold else 0)
+            dsm.append(row)
+        return dsm
+
+    def dsmClustering(self, dsm, bb_info):
+        max_cluster = 50
+        chromosome = []
+        # Make Initinal DSM
+        if bb_info:
+            chromosome = bb_info
+        else:
+            # for _ in range(max_cluster):
+            #     node = [random.randint(0, 1) for _ in range(self.geneSize)]
+            #     chromosome.append(node)
+            #
+            # for i in range(self.geneSize):
+            #     cluster = set([])
+            #     for j in range(i+1, self.geneSize):
+            #         if dsm[i][j] == 1 or dsm[j][i] == 1:
+            #             cluster.update([i, j])
+            #     flag = True
+            #     for cl in chromosome:
+            #         if cluster.issubset(cl):
+            #             flag = False
+            #             break
+            #     if flag:
+            #         chromosome.append(cluster)
+
+            # t_ch = []
+            # for cluster in chromosome:
+            #     row = []
+            #     for i in range(self.geneSize):
+            #         if i in cluster:
+            #             row.append(1)
+            #         else:
+            #             row.append(0)
+            #     t_ch.append(row)
+            # chromosome = t_ch
+            #
+            for i in range(self.geneSize):
+                node = [0 for _ in range(self.geneSize)]
+                node[i] = 1
+                chromosome.append(node)
+
+        # Update DSM information
+        nn = self.geneSize  # number of node(gene)
+        nc = 0              # number of cluster
+        cl = []             # number of element in each cluster
+        nodesets = []
+        pairsets = []
+
+        for cluster in chromosome:
+            nodeset = set([])
+            pairset = set([])
+            tmp = sum(cluster)
+            if tmp != 0:
+                cl.append(tmp)
+                nc += 1
+            for i in range(len(cluster)):
+                for j in range(len(cluster)):
+                    if i == j:
+                        if cluster[i] == 1:
+                            nodeset.add(i)
+                        continue
+                    if cluster[i] == 1 and cluster[j] == 1:
+                        pairset.add((i, j))
+                        nodeset.add(i)
+                        nodeset.add(j)
+            pairsets.append(pairset)
+            nodesets.append(nodeset)
+
+        dsm_prime = self.dsmPrime(nn, pairsets)
+
+        # Evaluate DSM
+        b_eval = self.dsmFitness(self.geneSize, nc, cl, dsm_prime, dsm)
+
+        # Hill climbing of DSM
+        max_iter = int((sum(cl) / len(cl)) * nn*10)
+
+        count = 0
+        for i in range(max_iter):
+            # Create new chromosome
+            n_chromosome = copy.deepcopy(chromosome)
+            n_cl = copy.deepcopy(cl)
+            n_nc = nc
+
+            for i in range(1):
+                # Select one gene
+                r_idx = random.randint(0, nc-1)
+                c_idx = random.randint(0, self.geneSize-1)
+                # Flip the gene
+                n_chromosome[r_idx][c_idx] = 1 - n_chromosome[r_idx][c_idx]
+
+                # update number of element in cluster
+                if n_chromosome[r_idx][c_idx] == 0:
+                    changed = set([pair for pair in pairsets[r_idx] if c_idx in pair])
+                    remove_pair = []
+                    for pair in changed:
+                        flag = True
+                        for i, pairset in enumerate(pairsets):
+                            if i == r_idx:
+                                continue
+                            if pair in pairset:
+                                flag = False
+                                break
+                        if flag:
+                            remove_pair.append(pair)
+                    n_cl[r_idx] -= 1
+                    n_dsm_prime = self.dsmRemove(dsm_prime, remove_pair)
+                else:
+                    changed = set([])
+                    for node in nodesets[r_idx]:
+                        changed.add((c_idx, node))
+                        changed.add((node, c_idx))
+                    n_cl[r_idx] += 1
+                    n_dsm_prime = self.dsmUpdate(dsm_prime, changed)
+                # Update number of cluster
+                if sum(n_chromosome[r_idx]) == 0:
+                    n_nc -= 1
+                # Update dsm prime
+
+            n_eval = self.dsmFitness(self.geneSize, n_nc, n_cl, n_dsm_prime, dsm)
+            if n_eval <= b_eval:  
+                if n_chromosome[r_idx][c_idx] == 0:
+                    pairsets[r_idx] = pairsets[r_idx] - changed
+                    nodesets[r_idx].remove(c_idx)
+                    if sum(n_chromosome[r_idx]) == 0:
+                        del n_chromosome[r_idx]
+                        del pairsets[r_idx]
+                        del nodesets[r_idx]
+                else:
+                    pairsets[r_idx].update(changed)
+                    nodesets[r_idx].add(c_idx)
+                chromosome, b_eval = n_chromosome, n_eval
+                cl, nc = n_cl, n_nc
+                dsm_prime = n_dsm_prime
+                count = 0
+            else:
+                count += 1
+
+            if count > int(max_iter/100):
+                break
+
+        building_block = copy.deepcopy(nodesets)
+        for i in range(len(nodesets)):
+            for j in range(len(nodesets)):
+                if i == j:
+                    continue
+                if nodesets[i].issubset(nodesets[j]):
+                    building_block.remove(nodesets[i])
+                    break
+
+        bb_info = []
+        for i in range(len(building_block)):
+            cluster = [0 for _ in range(self.geneSize)]
+            for node in building_block[i]:
+                cluster[node] = 1
+            bb_info.append(cluster)
+
+        plt.imshow(dsm_prime, cmap='gray', vmin=0, vmax=1)
+        plt.savefig('dsm_prime.png')
+
+        # no_overlap = []
+        # for i in range(len(nodesets)):
+        #     flag = True
+        #     for j in range(len(nodesets)):
+        #         if i == j:
+        #             continue
+        #         if len(nodesets[i] & nodesets[j]) != 0:
+        #             flag = False
+        #             break
+        #     if flag:
+        #         no_overlap.append(nodesets[i])
+
+        return building_block, bb_info
+
+    def dsmFitness(self, nn, nc, cl, dsm_prime, dsm):
+        alpha = 0.3
+        beta = 0.3
+        s1 = []
+        s2 = []
+        
+        for i in range(nn):
+            for j in range(i+1, nn):
+                if dsm[i][j] == 0 and dsm_prime[i][j] == 1:
+                    s1.append(tuple([i, j]))
+                elif dsm[i][j] == 1 and dsm_prime[i][j] == 0:
+                    s2.append(tuple([i, j]))
+                if dsm[j][i] == 0 and dsm_prime[i][j] == 1:
+                    s1.append(tuple([j, i]))
+                elif dsm[j][i] == 1 and dsm_prime[j][i] == 0:
+                    s2.append(tuple([j, i]))
+        
+        return (1-alpha-beta) * (nc*math.log2(nn) + math.log2(nn)*sum(cl)) + alpha*(len(s1)*(2*math.log2(nn)+1)) + beta*(len(s2)*(2*math.log2(nn)+1))
+
+    def dsmPrime(self, nn, pairsets):
+        dsm_prime = [[0 for _ in range(nn)] for _ in range(nn)]
+        for pairset in pairsets:
+            for pair in pairset:
+                i, j = pair
+                dsm_prime[i][j] = 1
+
+        return dsm_prime
+
+    def dsmUpdate(self, dsm, pairset):
+        tmp_dsm = copy.deepcopy(dsm)
+        for pair in pairset:
+            i, j = pair
+            tmp_dsm[i][j] = 1
+            tmp_dsm[j][i] = 1
+        return tmp_dsm
+
+    def dsmRemove(self, dsm, pairset):
+        tmp_dsm = copy.deepcopy(dsm)
+        for pair in pairset:
+            i, j = pair
+            tmp_dsm[i][j] = 0
+            tmp_dsm[j][i] = 0
+        return tmp_dsm
+
+    def dsmArrange(self, dsm, bb):
+        tmp_dsm = copy.deepcopy(dsm)
+        tmp_dsm = np.array(tmp_dsm)
+        for b in bb:
+            tmp = tmp_dsm[list(b)]
+            tmp_dsm = np.delete(tmp_dsm, list(b), axis=0)
+            tmp_dsm = np.concatenate((tmp, tmp_dsm), axis=0)
+        for b in bb:
+            tmp = tmp_dsm[:, list(b)]
+            tmp_dsm = np.delete(tmp_dsm, list(b), axis=1)
+            tmp_dsm = np.concatenate((tmp, tmp_dsm), axis=1)
+
+        return tmp_dsm
 
     def combination(self):
         self.population = self.population + self.offspring
@@ -350,17 +483,18 @@ class GeneticAlgorithm():
             worst_key = self.sortedFit[len(self.sortedFit)-1][0]
             self.population[worst_key] = self.elite
 
-    def calculateFitness(self, salesman):
+    def calculateFitness(self):
         self.fitness = {}
         for i, gene in enumerate(self.population):
-            gene.evaluation(salesman)
-            self.fitness[i] = gene.totalDist
+            gene.evaluation()
+            self.fitness[i] = gene.fitness
 
         self.sortedFit = sorted(self.fitness.items(), key=(lambda x:x[1]), reverse=True)
+        self.bestChromosome = self.population[self.sortedFit[0][0]]
         self.best = self.sortedFit[0][1]
         self.mean = sum(self.fitness.values()) / len(self.fitness)
 
-        return self.best, self.mean
+        return self.best, self.mean, self.bestChromosome
 
     def offspringCalculateFitness(self, salesman):
         self.o_fitness = {}
