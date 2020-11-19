@@ -83,7 +83,7 @@ if __name__ == '__main__':
     # Print total best results.
     print('Best profit:', max(best_fitness))
     print('Mean of profit:', max(mean_fitness))
-    with open('dsmga_result.txt', 'w+') as f:
+    with open('dsmga_result.txt', 'a') as f:
         f.write('Best: '+str(max(best_fitness)))
         idx = best_fitness.index(max(best_fitness))
         f.write('Chromosome: '+str(best_chromosomes[idx]))
