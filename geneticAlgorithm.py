@@ -181,7 +181,7 @@ class GeneticAlgorithm():
             k = sum([sum(x) for x in bb_info]) / len(bb_info)
         else:
             m = 100
-            k = 100
+            k = 1
 
         c = 1 / (8 * math.pi * (k**2))
         l = k * m
@@ -314,7 +314,7 @@ class GeneticAlgorithm():
         b_eval = self.dsmFitness(self.geneSize, nc, cl, dsm_prime, dsm)
 
         # Hill climbing of DSM
-        max_iter = int((sum(cl) / len(cl)) * nn*10)
+        max_iter = int((sum(cl) / len(cl)) * nn*10) * 100
 
         count = 0
         for i in range(max_iter):
@@ -377,7 +377,7 @@ class GeneticAlgorithm():
             else:
                 count += 1
 
-            if count > int(max_iter/100):
+            if count > 100:
                 break
 
         building_block = copy.deepcopy(nodesets)
@@ -413,24 +413,34 @@ class GeneticAlgorithm():
 
         return building_block, bb_info
 
+    def dsmClustering2(self, dsm, bb_info):
+        pairsets = []
+        pairset = set([])
+        for i in range(len(dsm)):
+            for j in range(len(dsm)):
+                if i == j:
+                    continue
+                if dsm[i][j] == 1:
+                    pairset.add(i, j)
+        pairsets.append(pairset)
+
+        for i in range(100):
+            n_dsm = copy.deepcopy(dsm)
+            idx = random.randint(0, len(n_dsm)-1)
+
     def dsmFitness(self, nn, nc, cl, dsm_prime, dsm):
         alpha = 0.3
         beta = 0.3
         s1 = []
         s2 = []
+
+        t_dsm = np.array(dsm)
+        t_dsm_prime = np.array(dsm_prime)
+
+        s1 = np.logical_and(np.where(t_dsm==0, 1, 0), t_dsm_prime)
+        s2 = np.logical_and(t_dsm, np.where(t_dsm_prime==0, 1, 0))
         
-        for i in range(nn):
-            for j in range(i+1, nn):
-                if dsm[i][j] == 0 and dsm_prime[i][j] == 1:
-                    s1.append(tuple([i, j]))
-                elif dsm[i][j] == 1 and dsm_prime[i][j] == 0:
-                    s2.append(tuple([i, j]))
-                if dsm[j][i] == 0 and dsm_prime[i][j] == 1:
-                    s1.append(tuple([j, i]))
-                elif dsm[j][i] == 1 and dsm_prime[j][i] == 0:
-                    s2.append(tuple([j, i]))
-        
-        return (1-alpha-beta) * (nc*math.log2(nn) + math.log2(nn)*sum(cl)) + alpha*(len(s1)*(2*math.log2(nn)+1)) + beta*(len(s2)*(2*math.log2(nn)+1))
+        return (1-alpha-beta) * (nc*math.log2(nn) + math.log2(nn)*sum(cl)) + alpha*(np.sum(s1)*(2*math.log2(nn)+1)) + beta*(np.sum(s2)*(2*math.log2(nn)+1))
 
     def dsmPrime(self, nn, pairsets):
         dsm_prime = [[0 for _ in range(nn)] for _ in range(nn)]
@@ -438,6 +448,9 @@ class GeneticAlgorithm():
             for pair in pairset:
                 i, j = pair
                 dsm_prime[i][j] = 1
+
+        for i in range(nn):
+            dsm_prime[i][i] = 1
 
         return dsm_prime
 
